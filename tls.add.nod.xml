@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-09-16 19:06:57 by Eclipse SUMO netedit Version 1.24.0
+<neteditConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/neteditConfiguration.xsd">
+
+    <input>
+        <node-files value="C:\Users\maria\Desktop\Geekathon\tls.add.nod.xml"/>
+        <edge-files value="C:\Users\maria\Desktop\Geekathon\tls.add.edg.xml"/>
+        <connection-files value="C:\Users\maria\Desktop\Geekathon\tls.add.con.xml"/>
+        <tllogic-files value="C:\Users\maria\Desktop\Geekathon\tls.add.tll.xml"/>
+        <type-files value="C:\Users\maria\Desktop\Geekathon\tls.add.typ.xml"/>
+    </input>
+
+    <processing>
+        <geometry.min-radius.fix.railways value="false"/>
+        <geometry.avoid-overlap value="false"/>
+        <geometry.max-grade.fix value="false"/>
+        <offset.disable-normalization value="true"/>
+        <lefthand value="0"/>
+    </processing>
+
+    <junctions>
+        <no-turnarounds value="true"/>
+        <junctions.corner-detail value="5"/>
+        <junctions.limit-turn-speed value="5.50"/>
+        <rectangular-lane-cut value="0"/>
+    </junctions>
+
+    <pedestrian>
+        <walkingareas value="0"/>
+    </pedestrian>
+
+</neteditConfiguration>
+-->
+
+<nodes version="1.20" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/nodes_file.xsd">
+    <location netOffset="-516150.43,-4398963.13" convBoundary="0.00,0.00,272.04,267.33" origBoundary="-8.811507,39.740409,-8.808332,39.742818" projParameter="+proj=utm +zone=29 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"/>
+
+    <node id="102768717" x="92.78" y="119.59" type="traffic_light" tl="102768717"/>
+    <node id="102768718" x="89.85" y="116.97" type="traffic_light" tl="102768718"/>
+    <node id="11949799429" x="96.21" y="100.86" type="dead_end"/>
+    <node id="11949799430" x="97.02" y="99.92" type="dead_end"/>
+    <node id="11949799436" x="108.26" y="125.67" type="priority"/>
+    <node id="11949799460" x="87.43" y="129.55" type="dead_end"/>
+    <node id="11949832308" x="135.06" y="0.00" type="dead_end"/>
+    <node id="11949832314" x="83.02" y="91.25" type="dead_end"/>
+    <node id="11949832333" x="272.04" y="8.03" type="dead_end"/>
+    <node id="11949832340" x="121.37" y="140.46" type="dead_end"/>
+    <node id="11949832341" x="156.81" y="91.12" type="priority"/>
+    <node id="11949832342" x="186.06" y="191.38" type="dead_end"/>
+    <node id="11949872882" x="107.78" y="143.11" type="priority"/>
+    <node id="11949872883" x="95.10" y="115.29" type="dead_end"/>
+    <node id="12533808289" x="64.51" y="223.18" type="dead_end"/>
+    <node id="1864358566" x="0.00" y="38.10" type="priority"/>
+    <node id="2026908697" x="173.01" y="55.91" type="priority"/>
+    <node id="2026908702" x="159.32" y="65.20" type="right_before_left"/>
+    <node id="2026908724" x="94.05" y="107.07" type="priority"/>
+    <node id="2026908734" x="132.95" y="47.10" type="dead_end"/>
+    <node id="2026908835" x="113.93" y="119.70" type="right_before_left"/>
+    <node id="205365527" x="67.37" y="137.38" type="priority"/>
+    <node id="2538062896" x="31.15" y="153.38" type="dead_end"/>
+    <node id="255468496" x="135.13" y="267.33" type="dead_end"/>
+    <node id="255468497" x="138.64" y="158.03" type="priority"/>
+    <node id="2751830545" x="111.69" y="110.14" type="dead_end"/>
+    <node id="2752204719" x="87.68" y="98.94" type="traffic_light" tl="2752204719"/>
+    <node id="2752204774" x="89.69" y="96.11" type="traffic_light" tl="2752204774"/>
+    <node id="2752204803" x="71.01" y="100.61" type="traffic_light" tl="2752204803"/>
+    <node id="2752204813" x="67.68" y="170.76" type="priority"/>
+    <node id="2752204815" x="70.40" y="119.10" type="traffic_light" tl="2752204815"/>
+    <node id="2752204817" x="68.18" y="122.90" type="traffic_light" tl="2752204817"/>
+    <node id="2752204819" x="37.67" y="194.95" type="priority"/>
+    <node id="2752204840" x="73.55" y="102.69" type="traffic_light" tl="2752204840"/>
+    <node id="2752204999" x="104.22" y="129.93" type="priority"/>
+    <node id="2754440695" x="144.57" y="82.97" type="right_before_left"/>
+    <node id="2754440705" x="187.59" y="83.67" type="priority"/>
+    <node id="2756448684" x="64.15" y="170.20" type="dead_end"/>
+    <node id="454747351" x="14.43" y="198.40" type="dead_end"/>
+    <node id="455701556" x="168.99" y="182.72" type="dead_end"/>
+    <node id="5365009933" x="53.73" y="174.41" type="dead_end"/>
+    <node id="6344125219" x="116.91" y="141.39" type="priority"/>
+    <node id="6344125222" x="77.25" y="114.29" type="priority"/>
+    <node id="6344151702" x="121.70" y="50.26" type="priority"/>
+    <node id="6396531970" x="60.19" y="144.28" type="priority"/>
+    <node id="6396531971" x="75.02" y="127.37" type="traffic_light" tl="6396531971"/>
+    <node id="6436895572" x="80.73" y="108.73" type="priority"/>
+    <node id="6697836699" x="33.83" y="161.45" type="priority"/>
+    <node id="6697836701" x="55.52" y="154.80" type="priority"/>
+    <node id="6697836703" x="47.10" y="151.38" type="dead_end"/>
+    <node id="6697836704" x="43.70" y="158.51" type="dead_end"/>
+    <node id="6697836705" x="51.62" y="141.25" type="dead_end"/>
+    <node id="7041014767" x="112.70" y="137.60" type="priority"/>
+    <node id="7041014768" x="107.23" y="143.73" type="priority"/>
+</nodes>

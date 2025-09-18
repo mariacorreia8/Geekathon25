@@ -1,0 +1,32 @@
+<!-- tls.add.xml -->
+<additional>
+    <!-- Estrada que vem da ESECS -->
+    <tlLogic id="2752204803" type="static" programID="real" offset="0">
+        <phase duration="80" state="Grr"/> 
+        <phase duration="20"  state="GGr"/>  
+        <phase duration="20" state="GGG"/>  
+    </tlLogic>
+ 
+    <!-- Estrada que vem do Tribunal -->
+    <tlLogic id="2752204774" type="static" programID="real" offset="0">
+        <phase duration="40" state="rrGG"/>   
+        <phase duration="40" state="GrGG"/>
+        <phase duration="20" state="rGGG"/>      
+        <phase duration="20" state="rrGG"/>   
+    </tlLogic>
+
+    <!-- Estrada que vai para a praça / capuchos -->
+    <tlLogic id="2752204817" type="static" programID="real" offset="0">
+        <phase duration="30" state="rr"/> 
+        <phase duration="10" state="rG"/>
+        <phase duration="40" state="GG"/>
+        <phase duration="20" state="rG"/>
+    </tlLogic>
+
+    <!-- Estrada que vem do paddock -->
+    <tlLogic id="102768717" type="static" programID="real" offset="0">
+        <phase duration="30" state="GGGG"/>
+        <phase duration="90" state="rrrr"/>
+    </tlLogic>
+
+</additional>

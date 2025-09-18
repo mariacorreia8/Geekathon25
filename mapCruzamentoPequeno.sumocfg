@@ -1,0 +1,11 @@
+<configuration>
+    <input>
+        <net-file value="mapCruzamentoPequeno.net.xml"/>
+        <route-files value="routes2.rou.xml"/>
+        <additional-files value="tls.add.xml"/>
+    </input>
+    <time>
+        <begin value="0"/>
+        <end value="1000"/>
+    </time>
+</configuration>
