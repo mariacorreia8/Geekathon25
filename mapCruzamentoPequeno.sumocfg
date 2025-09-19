@@ -7,5 +7,9 @@
     <time>
         <begin value="0"/>
         <end value="1000"/>
+        <step-length value="0.5"/>
     </time>
+    <gui_only>
+        <delay value="400">
+    </gui_only>
 </configuration>
