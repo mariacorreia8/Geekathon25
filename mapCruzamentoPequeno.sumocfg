@@ -9,7 +9,7 @@
         <end value="1000"/>
         <step-length value="0.5"/>
     </time>
-    <gui_only>
-        <delay value="400">
-    </gui_only>
+    <viewsettings>
+        <delay value="100"/>
+    </viewsettings>
 </configuration>

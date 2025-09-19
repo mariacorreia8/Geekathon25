@@ -124,6 +124,10 @@ def train():
 
     print("Training finished. Q-table saved.")
 
+
+
+
+
 if __name__ == "__main__":
     random.seed(0)
     try:
