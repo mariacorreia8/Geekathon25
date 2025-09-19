@@ -1,217 +1,134 @@
 """
-qlearning_tls.py
+qlearning_tls_light.py
 
-Minimal tabular Q-learning controller for a single SUMO traffic light (intersection).
-- Works with existing phases (so respects turn restrictions already present in your net/connection XML).
-- State: discretized halting vehicle counts per incoming lane.
-- Action: choose a phase index (0..phaseCount-1).
-- Reward: reduction in halting vehicles (so it learns to reduce stops).
-
-Requirements:
-    - SUMO (with TraCI python available)
-    - Python 3.8+
-    - pickle (standard)
-
-Adjust parameters below as needed.
+Lightweight tabular Q-learning controller for a single SUMO traffic light.
 """
 
-import os
-import sys
-import time
-import pickle
-import random
+import os, sys, pickle, random
 from collections import defaultdict
 
-# ========== USER: set these paths / binary ==========
-SUMO_BINARY = "sumo-gui"   # or "sumo" if you don’t want the GUI
+SUMO_BINARY = "sumo"  # use sumo-gui if you want GUI
 SUMO_NET = "mapCruzamentoPequeno.net.xml"
 SUMO_ROUTE = "routes2.rou.xml"
-SUMO_ADDITIONAL = None #"tls.add.xml"  # if your tlLogic is stored here
-# ===================================================
+SUMO_ADDITIONAL = None
 
 # Q-learning params
-ALPHA = 0.7            # learning rate
-GAMMA = 0.9            # discount factor
+ALPHA = 0.7
+GAMMA = 0.9
 EPSILON_START = 1.0
 EPSILON_END = 0.05
 EPSILON_DECAY = 0.995
-NUM_EPISODES = 200     # # of training episodes
-MAX_STEPS = 3600       # timesteps per episode (simulation seconds)
-DECISION_INTERVAL = 5  # seconds between decisions (agent picks new phase every 5s)
-STATE_BINS = [0, 1, 3] # discretization thresholds for halting vehicles: 0, 1, 2-3, 4+
+NUM_EPISODES = 200
+MAX_STEPS = 3600
+DECISION_INTERVAL = 5
+STATE_BINS = [0, 1, 3]
 Q_TABLE_FILE = "q_table.pkl"
-
-# reward shaping
 PHASE_CHANGE_PENALTY = 0.1
 
-# TraCI import
 try:
     import traci
-except Exception as e:
-    print("Failed to import traci. Make sure SUMO's tools are in PYTHONPATH.")
-    print("If SUMO is installed, e.g.: export PYTHONPATH=$SUMO_HOME/tools")
-    raise
+except ImportError:
+    raise RuntimeError("TraCI not found. Set PYTHONPATH to SUMO/tools.")
 
 # ----------------- Helpers -----------------
 def start_sumo():
-    sumo_cmd = [SUMO_BINARY, "-n", SUMO_NET, "-r", SUMO_ROUTE, "--start"]
+    cmd = [SUMO_BINARY, "-n", SUMO_NET, "-r", SUMO_ROUTE, "--start"]
     if SUMO_ADDITIONAL:
-        sumo_cmd += ["-a", SUMO_ADDITIONAL]
-    # no gui by default; if you want gui use "sumo-gui" as SUMO_BINARY
-    traci.start(sumo_cmd)
+        cmd += ["-a", SUMO_ADDITIONAL]
+    traci.start(cmd)
 
-def discretize_count(count):
-    """Map integer count -> discrete bin index (0..len(STATE_BINS))."""
-    for i, thresh in enumerate(STATE_BINS):
-        if count <= thresh:
-            return i
+def discretize(count):
+    for i, t in enumerate(STATE_BINS):
+        if count <= t: return i
     return len(STATE_BINS)
 
-def make_state_from_lane_counts(lane_ids):
-    """Return a tuple of discretized halting counts for the provided lanes (order preserved)."""
-    return tuple(discretize_count(int(traci.lane.getLastStepHaltingNumber(l))) for l in lane_ids)
+def get_state(lanes):
+    return tuple(discretize(traci.lane.getLastStepHaltingNumber(l)) for l in lanes)
 
-def state_to_key(state):
-    """Convert state tuple to string key for dict indexing (stable)."""
+def state_key(state):
     return ",".join(map(str, state))
 
-def choose_action(q_table, state_key, n_actions, epsilon):
-    """Epsilon-greedy action selection."""
-    if random.random() < epsilon:
+def choose_action(q_table, key, n_actions, epsilon):
+    if random.random() < epsilon or key not in q_table:
         return random.randrange(n_actions)
-    # choose best action(s)
-    q_row = q_table.get(state_key)
-    if q_row is None:
-        return random.randrange(n_actions)
+    q_row = q_table[key]
     max_q = max(q_row)
-    # tie-breaker random among best
-    best_actions = [i for i, q in enumerate(q_row) if q == max_q]
-    return random.choice(best_actions)
+    return random.choice([i for i, q in enumerate(q_row) if q == max_q])
 
-def ensure_q_row(q_table, state_key, n_actions):
-    if state_key not in q_table:
-        q_table[state_key] = [0.0] * n_actions
+def ensure_q_row(q_table, key, n_actions):
+    if key not in q_table:
+        q_table[key] = [0.0] * n_actions
 
-# --------------- Main training loop ---------------
+# ----------------- Training -----------------
 def train():
-    # load or init Q-table
+    q_table = {}
     if os.path.exists(Q_TABLE_FILE):
         with open(Q_TABLE_FILE, "rb") as f:
             q_table = pickle.load(f)
-        print("Loaded Q-table from", Q_TABLE_FILE)
-    else:
-        q_table = dict()
+        print("Loaded Q-table.")
 
     epsilon = EPSILON_START
 
-    for episode in range(1, NUM_EPISODES + 1):
+    for ep in range(1, NUM_EPISODES + 1):
         start_sumo()
-        tls_ids = traci.trafficlight.getIDList()
-        if len(tls_ids) == 0:
-            print("No traffic lights found in the network. Exiting.")
+        tls_list = traci.trafficlight.getIDList()
+        if not tls_list:
+            print("No traffic lights found.")
             traci.close()
             return
-        tls_id = tls_ids[0]  # choose the first TLS found; change if you want a specific tls
-        print(f"Episode {episode}/{NUM_EPISODES} — controlling TLS: {tls_id}")
-
-        # get controlled lanes (incoming lanes). This respects your net connections / restrictions.
-        # getControlledLanes returns lanes that are in the TLS program (may include outgoing lanes).
-        controlled_lanes = traci.trafficlight.getControlledLanes(tls_id)
-        # Keep only unique lanes and prefer incoming (lane IDs that start with '-') or simply trust this list.
-        # We'll keep the order stable:
-        lane_ids = []
-        for l in controlled_lanes:
-            if l not in lane_ids:
-                lane_ids.append(l)
-
+        tls_id = tls_list[0]
+        lanes = list(dict.fromkeys(traci.trafficlight.getControlledLanes(tls_id)))
         n_actions = len(traci.trafficlight.getCompleteRedYellowGreenDefinition(tls_id)[0].phases)
-        print(f"Detected {len(lane_ids)} controlled lanes, {n_actions} phases.")
 
-        # initialize state
-        traci.simulationStep()  # advance one step to initialize lane data
-        prev_state = make_state_from_lane_counts(lane_ids)
-        prev_state_key = state_to_key(prev_state)
-        ensure_q_row(q_table, prev_state_key, n_actions)
+        traci.simulationStep()
+        prev_state = get_state(lanes)
+        prev_key = state_key(prev_state)
+        ensure_q_row(q_table, prev_key, n_actions)
+        prev_halts = sum(traci.lane.getLastStepHaltingNumber(l) for l in lanes)
 
-        # record previous halts for reward calc
-        prev_total_halts = sum(int(traci.lane.getLastStepHaltingNumber(l)) for l in lane_ids)
-
-        total_reward_episode = 0.0
+        total_reward = 0
         steps = 0
         current_phase = traci.trafficlight.getPhase(tls_id)
 
         while steps < MAX_STEPS:
-            # choose action every DECISION_INTERVAL seconds
-            action = choose_action(q_table, prev_state_key, n_actions, epsilon)
-            # apply action (phase index)
-            if action != current_phase:
-                phase_changed = 1
-            else:
-                phase_changed = 0
+            action = choose_action(q_table, prev_key, n_actions, epsilon)
+            phase_changed = int(action != current_phase)
             traci.trafficlight.setPhase(tls_id, action)
             current_phase = action
 
-            # simulate DECISION_INTERVAL seconds
             for _ in range(DECISION_INTERVAL):
                 traci.simulationStep()
                 steps += 1
                 if steps >= MAX_STEPS:
                     break
 
-            # observe new state and reward
-            cur_state = make_state_from_lane_counts(lane_ids)
-            cur_state_key = state_to_key(cur_state)
-            ensure_q_row(q_table, cur_state_key, n_actions)
+            cur_state = get_state(lanes)
+            cur_key = state_key(cur_state)
+            ensure_q_row(q_table, cur_key, n_actions)
 
-            cur_total_halts = sum(int(traci.lane.getLastStepHaltingNumber(l)) for l in lane_ids)
-            # reward = reduction in halting vehicles (positive if halts decreased)
-            reward = (prev_total_halts - cur_total_halts) - PHASE_CHANGE_PENALTY * phase_changed
+            cur_halts = sum(traci.lane.getLastStepHaltingNumber(l) for l in lanes)
+            reward = (prev_halts - cur_halts) - PHASE_CHANGE_PENALTY * phase_changed
 
             # Q-learning update
-            old_q = q_table[prev_state_key][action]
-            max_next_q = max(q_table[cur_state_key])
-            new_q = old_q + ALPHA * (reward + GAMMA * max_next_q - old_q)
-            q_table[prev_state_key][action] = new_q
+            q_table[prev_key][action] += ALPHA * (reward + GAMMA * max(q_table[cur_key]) - q_table[prev_key][action])
+            total_reward += reward
 
-            total_reward_episode += reward
+            prev_key = cur_key
+            prev_halts = cur_halts
 
-            # advance state
-            prev_state_key = cur_state_key
-            prev_total_halts = cur_total_halts
-
-            # (optional) small early-stopping if traffic became zero
-            if cur_total_halts == 0 and steps > 20:
-                # no halting vehicles left — good episode
-                pass
-
-            # print occasional debug
-            if steps % (DECISION_INTERVAL * 20) == 0:
-                print(f" episode {episode} step {steps}/{MAX_STEPS} reward_so_far {total_reward_episode:.2f} eps {epsilon:.3f}")
-
-            if steps >= MAX_STEPS:
-                break
-
-        # end episode
         traci.close()
-        # decay epsilon
         epsilon = max(EPSILON_END, epsilon * EPSILON_DECAY)
-
-        # save Q-table periodically
         with open(Q_TABLE_FILE, "wb") as f:
             pickle.dump(q_table, f)
+        print(f"Episode {ep} done. Reward: {total_reward:.2f}, epsilon: {epsilon:.3f}")
 
-        print(f"Episode {episode} ended. Total reward: {total_reward_episode:.2f}, epsilon: {epsilon:.3f}")
+    print("Training finished. Q-table saved.")
 
-    print("Training finished. Q-table saved to", Q_TABLE_FILE)
-
-# --------------- Run as script ---------------
 if __name__ == "__main__":
     random.seed(0)
     try:
         train()
     except KeyboardInterrupt:
-        print("User interrupted. Closing TraCI if open.")
-        try:
-            traci.close()
-        except:
-            pass
+        print("Interrupted by user.")
+        try: traci.close()
+        except: pass
