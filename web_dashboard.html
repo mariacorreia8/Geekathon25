@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,102 +11,216 @@
       padding: 20px;
       background: #f0f2f5;
     }
+
+    .widgets-row {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+    }
+
+    .emissions-row {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+    }
+
     .widget {
       background: white;
       padding: 20px;
       border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      display: inline-block;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      flex: 1;
       margin: 10px;
       text-align: center;
-      width: 220px;
     }
+
     .widget h2 {
       margin: 0;
       font-size: 18px;
       color: #555;
     }
+
     .widget p {
       margin: 10px 0 0;
       font-size: 24px;
       font-weight: bold;
       color: #222;
     }
+
     .widget .description {
       margin-top: 5px;
       font-size: 14px;
       color: #777;
     }
+
+    canvas {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      padding: 10px;
+      margin: 10px auto;
+      display: block;
+      width: 80% !important;
+      max-width: 700px;
+      height: 300px !important;
+    }
   </style>
 </head>
+
 <body>
 
   <h1>Vehicle Dashboard</h1>
 
-  <!-- Total Stopped Time Widget -->
-  <div class="widget">
-    <h2>Total Stopped Time</h2>
-    <p id="totalTime">0 s</p>
-    <div class="description">Total time all vehicles spent stopped at traffic lights.</div>
+  <!-- Top row widgets -->
+  <div class="widgets-row">
+    <div class="widget">
+      <h2>Total Stopped Time</h2>
+      <p id="totalTime">0 min</p>
+      <div class="description">Total time all vehicles spent stopped at traffic lights.</div>
+    </div>
+
+    <div class="widget">
+      <h2>Average Waiting Time</h2>
+      <p id="avgWaitingTime">0 min</p>
+      <div class="description">Average waiting time at traffic lights – demonstrates smoother flow.</div>
+    </div>
+
+    <div class="widget">
+      <h2>Maximum Waiting Time</h2>
+      <p id="maxWaitingTime">0 min</p>
+      <div class="description">Longest time any vehicle spent waiting at a traffic light.</div>
+    </div>
   </div>
 
-  <!-- Average Travel Time Widget -->
-  <div class="widget">
-    <h2>Average Travel Time</h2>
-    <p id="avgTravelTime">0 s</p>
-    <div class="description">Average time taken for a vehicle to complete its route.</div>
+  <!-- Emissions widgets row -->
+  <div class="emissions-row">
+    <div class="widget">
+      <h2>Total Emissions</h2>
+      <p id="totalEmissions">0 g</p>
+      <div class="description">Total emissions (CO₂ + CO + NOx) of all vehicles.</div>
+    </div>
+
+    <div class="widget">
+      <h2>Total CO₂</h2>
+      <p id="co2Emissions">0 g</p>
+      <div class="description">Total CO₂ emitted by all vehicles.</div>
+    </div>
+
+    <div class="widget">
+      <h2>Total CO</h2>
+      <p id="coEmissions">0 g</p>
+      <div class="description">Total CO emitted by all vehicles.</div>
+    </div>
+
+    <div class="widget">
+      <h2>Total NOx</h2>
+      <p id="noxEmissions">0 g</p>
+      <div class="description">Total NOx emitted by all vehicles.</div>
+    </div>
   </div>
 
-  <!-- Maximum Waiting Time Widget -->
-  <div class="widget">
-    <h2>Maximum Waiting Time</h2>
-    <p id="maxWaitingTime">0 s</p>
-    <div class="description">Longest time any vehicle spent waiting at a traffic light.</div>
-  </div>
+  <!-- Only Time Chart -->
+  <canvas id="timeChart"></canvas>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const csvFilePath = 'vehicles_with_numbers.csv'; 
+    const csvFilePath = 'vehicles_with_numbers.csv';
 
     const totalTimeElem = document.getElementById('totalTime');
-    const avgTravelTimeElem = document.getElementById('avgTravelTime');
+    const avgWaitingTimeElem = document.getElementById('avgWaitingTime');
     const maxWaitingTimeElem = document.getElementById('maxWaitingTime');
+    const totalEmissionsElem = document.getElementById('totalEmissions');
+    const co2EmissionsElem = document.getElementById('co2Emissions');
+    const coEmissionsElem = document.getElementById('coEmissions');
+    const noxEmissionsElem = document.getElementById('noxEmissions');
 
     fetch(csvFilePath)
       .then(response => response.text())
       .then(text => {
-        const rows = text.split('\n').slice(1); // skip header
+        const rows = text.split('\n').slice(1);
+
         let totalStopped = 0;
-        let totalTravelTime = 0;
         let maxWait = 0;
         let count = 0;
 
+        let totalCO2 = 0;
+        let totalCO = 0;
+        let totalNOx = 0;
+
         rows.forEach(row => {
-          if(row.trim() === '') return; // skip empty rows
+          if (row.trim() === '') return;
           const cols = row.split(',');
-          const stoppedTime = parseFloat(cols[1]); // StoppedTime(s)
-          const travelTime = parseFloat(cols[2]);  // TravelTime(s)
-          
-          if(!isNaN(stoppedTime)) {
+          const vehicleType = parseInt(cols[0]);
+          const stoppedTime = parseFloat(cols[1]);
+
+          if (!isNaN(stoppedTime)) {
             totalStopped += stoppedTime;
-            if(stoppedTime > maxWait) maxWait = stoppedTime; // track maximum waiting time
-          }
-          if(!isNaN(travelTime)) {
-            totalTravelTime += travelTime;
+            if (stoppedTime > maxWait) maxWait = stoppedTime;
             count++;
+          }
+
+          if (!isNaN(stoppedTime) && !isNaN(vehicleType)) {
+            if (vehicleType === 1) {
+              totalCO2 += stoppedTime * 0.2;
+              totalCO += stoppedTime * 0.001;
+              totalNOx += stoppedTime * 0.003;
+            }
+            if (vehicleType === 2) {
+              totalCO2 += stoppedTime * 7;
+              totalCO += stoppedTime * 0.014;
+              totalNOx += stoppedTime * 0.014;
+            }
           }
         });
 
-        totalTimeElem.textContent = totalStopped + ' s';
-        avgTravelTimeElem.textContent = (totalTravelTime / count).toFixed(2) + ' s';
-        maxWaitingTimeElem.textContent = maxWait + ' s';
+        const totalStoppedMin = totalStopped / 60;
+        const avgWaitingMin = (totalStopped / count) / 60;
+        const maxWaitMin = maxWait / 60;
+
+        totalTimeElem.textContent = totalStoppedMin.toFixed(2) + ' min';
+        avgWaitingTimeElem.textContent = avgWaitingMin.toFixed(2) + ' min';
+        maxWaitingTimeElem.textContent = maxWaitMin.toFixed(2) + ' min';
+
+        const totalEmissions = totalCO2 + totalCO + totalNOx;
+        totalEmissionsElem.textContent = totalEmissions.toFixed(3) + ' g';
+        co2EmissionsElem.textContent = totalCO2.toFixed(3) + ' g';
+        coEmissionsElem.textContent = totalCO.toFixed(3) + ' g';
+        noxEmissionsElem.textContent = totalNOx.toFixed(3) + ' g';
+
+        // --- Time Chart ---
+        const timeCtx = document.getElementById('timeChart').getContext('2d');
+        new Chart(timeCtx, {
+          type: 'bar',
+          data: {
+            labels: ['Average Waiting', 'Max Waiting', 'Total Stopped'],
+            datasets: [{
+              label: 'Minutes',
+              data: [avgWaitingMin.toFixed(2), maxWaitMin.toFixed(2), totalStoppedMin.toFixed(2)],
+              backgroundColor: 'rgba(54, 162, 235, 0.6)'
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { title: { display: true, text: 'Traffic Waiting Metrics' } },
+            scales: {
+              y: { title: { display: true, text: 'Minutes' } }
+            }
+          }
+        });
+
       })
       .catch(err => {
         console.error('Error loading CSV:', err);
         totalTimeElem.textContent = 'Error';
-        avgTravelTimeElem.textContent = 'Error';
+        avgWaitingTimeElem.textContent = 'Error';
         maxWaitingTimeElem.textContent = 'Error';
+        totalEmissionsElem.textContent = 'Error';
+        co2EmissionsElem.textContent = 'Error';
+        coEmissionsElem.textContent = 'Error';
+        noxEmissionsElem.textContent = 'Error';
       });
   </script>
 
 </body>
+
 </html>
