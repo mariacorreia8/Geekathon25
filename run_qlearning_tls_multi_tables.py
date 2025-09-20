@@ -12,11 +12,11 @@ except ImportError:
 # --- SUMO Configuration ---
 SUMO_BINARY = "sumo-gui"
 SUMO_NET = "mapCruzamentoPequeno.net.xml"
-SUMO_ROUTE = "routes3.rou.xml"
+SUMO_ROUTE = "routes2.rou.xml"
 SUMO_ADDITIONAL = None
 
 # --- Q-Learning Parameters (must match training script) ---
-Q_TABLES_FILE = "q_table_multi_robust.pkl"
+Q_TABLES_FILE = "q_table_multi_ep1998.pkl"
 STATE_BINS = [0, 2, 5, 10, 15]  # Use the same bins as the training script
 DECISION_INTERVAL = 10          # Use the same interval as the training script
 
@@ -25,10 +25,11 @@ def q_table_factory():
     return defaultdict(list)
 
 def start_sumo():
-    cmd = [SUMO_BINARY, "-n", SUMO_NET, "-r", SUMO_ROUTE, "--start"]
+    cmd = [SUMO_BINARY, "-n", SUMO_NET, "-r", SUMO_ROUTE, "--start", "--step-length", "0.5"]
     if SUMO_ADDITIONAL:
         cmd += ["-a", SUMO_ADDITIONAL]
     traci.start(cmd)
+
 
 def discretize(count):
     for i, threshold in enumerate(STATE_BINS):

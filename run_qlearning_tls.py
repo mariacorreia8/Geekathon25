@@ -7,12 +7,12 @@ except ImportError:
 
 SUMO_BINARY = "sumo-gui"  # or "sumo-gui" for visualization
 SUMO_NET = "mapCruzamentoPequeno.net.xml"
-SUMO_ROUTE = "routes3.rou.xml"
+SUMO_ROUTE = "routes2.rou.xml"
 SUMO_ADDITIONAL = None
 
 STATE_BINS = [0, 1, 3]
 DECISION_INTERVAL = 5
-Q_TABLE_FILE = "q_table_global_agent_with_collision.pkl"
+Q_TABLE_FILE = "q_table_ep3.pkl"
 PHASE_CHANGE_PENALTY = 0.1
 
 # ----------------- Helpers -----------------
