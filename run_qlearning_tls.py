@@ -11,7 +11,7 @@ SUMO_ADDITIONAL = None
 
 STATE_BINS = [0, 1, 3]
 DECISION_INTERVAL = 5
-Q_TABLE_FILE = "q_table.pkl"
+Q_TABLE_FILE = "q_table_multi_robust.pkl"
 PHASE_CHANGE_PENALTY = 0.1
 
 # ----------------- Helpers -----------------
@@ -46,6 +46,10 @@ def run():
     print("Loaded Q-table. Running SUMO simulation...")
 
     start_sumo()
+
+    # Step once so TLS info is available
+    traci.simulationStep()
+
     tls_list = traci.trafficlight.getIDList()
     if not tls_list:
         print("No traffic lights found.")
@@ -54,7 +58,14 @@ def run():
 
     tls_id = tls_list[0]
     lanes = list(dict.fromkeys(traci.trafficlight.getControlledLanes(tls_id)))
-    n_actions = len(traci.trafficlight.getCompleteRedYellowGreenDefinition(tls_id)[0].phases)
+
+    programs = traci.trafficlight.getCompleteRedYellowGreenDefinition(tls_id)
+    if not programs or not programs[0].phases:
+        print("Traffic light program not available yet.")
+        traci.close()
+        return
+
+    n_actions = len(programs[0].phases)
 
     current_phase = traci.trafficlight.getPhase(tls_id)
     prev_state = get_state(lanes)

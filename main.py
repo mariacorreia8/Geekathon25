@@ -110,7 +110,9 @@ def train():
             reward = (prev_halts - cur_halts) - PHASE_CHANGE_PENALTY * phase_changed
 
             # Q-learning update
-            q_table[prev_key][action] += ALPHA * (reward + GAMMA * max(q_table[cur_key]) - q_table[prev_key][action])
+            q_table[prev_key][action] += ALPHA * (
+                reward + GAMMA * max(q_table[cur_key]) - q_table[prev_key][action]
+            )
             total_reward += reward
 
             prev_key = cur_key
@@ -118,13 +120,20 @@ def train():
 
         traci.close()
         epsilon = max(EPSILON_END, epsilon * EPSILON_DECAY)
-        with open(Q_TABLE_FILE, "wb") as f:
-            pickle.dump(q_table, f)
+
+        # Save checkpoint every 3 episodes
+        if ep % 3 == 0:
+            checkpoint_file = f"q_table_ep{ep}.pkl"
+            with open(checkpoint_file, "wb") as f:
+                pickle.dump(q_table, f)
+            print(f"Checkpoint saved: {checkpoint_file}")
+
         print(f"Episode {ep} done. Reward: {total_reward:.2f}, epsilon: {epsilon:.3f}")
 
-    print("Training finished. Q-table saved.")
-
-
+    # Save final Q-table
+    with open(Q_TABLE_FILE, "wb") as f:
+        pickle.dump(q_table, f)
+    print("Training finished. Final Q-table saved.")
 
 
 
