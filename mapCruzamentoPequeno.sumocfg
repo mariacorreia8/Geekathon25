@@ -10,6 +10,6 @@
         <step-length value="0.5"/>
     </time>
     <viewsettings>
-        <delay value="100"/>
+        <delay value="400"/>
     </viewsettings>
 </configuration>
