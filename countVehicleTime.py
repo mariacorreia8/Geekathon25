@@ -31,6 +31,7 @@ while traci.simulation.getMinExpectedNumber() > 0:
 
 traci.close()
 
+
 # Print final results
 print("Stopped times at traffic lights:")
 for veh_id, time in stopped_times.items():
