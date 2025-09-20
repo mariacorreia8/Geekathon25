@@ -18,7 +18,7 @@
       display: inline-block;
       margin: 10px;
       text-align: center;
-      width: 200px;
+      width: 220px;
     }
     .widget h2 {
       margin: 0;
@@ -31,44 +31,79 @@
       font-weight: bold;
       color: #222;
     }
+    .widget .description {
+      margin-top: 5px;
+      font-size: 14px;
+      color: #777;
+    }
   </style>
 </head>
 <body>
 
   <h1>Vehicle Dashboard</h1>
 
-  <!-- Widget -->
+  <!-- Total Stopped Time Widget -->
   <div class="widget">
     <h2>Total Stopped Time</h2>
     <p id="totalTime">0 s</p>
+    <div class="description">Total time all vehicles spent stopped at traffic lights.</div>
+  </div>
+
+  <!-- Average Travel Time Widget -->
+  <div class="widget">
+    <h2>Average Travel Time</h2>
+    <p id="avgTravelTime">0 s</p>
+    <div class="description">Average time taken for a vehicle to complete its route.</div>
+  </div>
+
+  <!-- Maximum Waiting Time Widget -->
+  <div class="widget">
+    <h2>Maximum Waiting Time</h2>
+    <p id="maxWaitingTime">0 s</p>
+    <div class="description">Longest time any vehicle spent waiting at a traffic light.</div>
   </div>
 
   <script>
-    // Hardcoded CSV file path (must be in the same directory or reachable)
     const csvFilePath = 'vehicles_with_numbers.csv'; 
 
     const totalTimeElem = document.getElementById('totalTime');
+    const avgTravelTimeElem = document.getElementById('avgTravelTime');
+    const maxWaitingTimeElem = document.getElementById('maxWaitingTime');
 
     fetch(csvFilePath)
       .then(response => response.text())
       .then(text => {
         const rows = text.split('\n').slice(1); // skip header
-        let total = 0;
+        let totalStopped = 0;
+        let totalTravelTime = 0;
+        let maxWait = 0;
+        let count = 0;
 
         rows.forEach(row => {
           if(row.trim() === '') return; // skip empty rows
           const cols = row.split(',');
-          const stoppedTime = parseFloat(cols[1]); // StoppedTime(s) is 2nd column
+          const stoppedTime = parseFloat(cols[1]); // StoppedTime(s)
+          const travelTime = parseFloat(cols[2]);  // TravelTime(s)
+          
           if(!isNaN(stoppedTime)) {
-            total += stoppedTime;
+            totalStopped += stoppedTime;
+            if(stoppedTime > maxWait) maxWait = stoppedTime; // track maximum waiting time
+          }
+          if(!isNaN(travelTime)) {
+            totalTravelTime += travelTime;
+            count++;
           }
         });
 
-        totalTimeElem.textContent = total + ' s';
+        totalTimeElem.textContent = totalStopped + ' s';
+        avgTravelTimeElem.textContent = (totalTravelTime / count).toFixed(2) + ' s';
+        maxWaitingTimeElem.textContent = maxWait + ' s';
       })
       .catch(err => {
         console.error('Error loading CSV:', err);
         totalTimeElem.textContent = 'Error';
+        avgTravelTimeElem.textContent = 'Error';
+        maxWaitingTimeElem.textContent = 'Error';
       });
   </script>
 
