@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vehicle Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f2f5;
+    }
+    .widget {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: inline-block;
+      margin: 10px;
+      text-align: center;
+      width: 200px;
+    }
+    .widget h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #555;
+    }
+    .widget p {
+      margin: 10px 0 0;
+      font-size: 24px;
+      font-weight: bold;
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Vehicle Dashboard</h1>
+
+  <!-- Widget -->
+  <div class="widget">
+    <h2>Total Stopped Time</h2>
+    <p id="totalTime">0 s</p>
+  </div>
+
+  <script>
+    // Hardcoded CSV file path (must be in the same directory or reachable)
+    const csvFilePath = 'vehicles_with_numbers.csv'; 
+
+    const totalTimeElem = document.getElementById('totalTime');
+
+    fetch(csvFilePath)
+      .then(response => response.text())
+      .then(text => {
+        const rows = text.split('\n').slice(1); // skip header
+        let total = 0;
+
+        rows.forEach(row => {
+          if(row.trim() === '') return; // skip empty rows
+          const cols = row.split(',');
+          const stoppedTime = parseFloat(cols[1]); // StoppedTime(s) is 2nd column
+          if(!isNaN(stoppedTime)) {
+            total += stoppedTime;
+          }
+        });
+
+        totalTimeElem.textContent = total + ' s';
+      })
+      .catch(err => {
+        console.error('Error loading CSV:', err);
+        totalTimeElem.textContent = 'Error';
+      });
+  </script>
+
+</body>
+</html>

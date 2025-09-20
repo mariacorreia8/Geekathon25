@@ -1,20 +1,24 @@
+import sys
 import pandas as pd
 import numpy as np
-import tkinter as tk
-from tkinter import ttk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
-import tkinter.font as tkFont
 
-# Load CSV
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QTableWidget, QTableWidgetItem, QComboBox, QGroupBox
+)
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
+
+# ----------------- Load Data -----------------
 df = pd.read_csv("vehicles_with_numbers.csv")
 
-# Emission ranges
 gas_emissions = {"CO2": (3, 7), "CO": (0.006, 0.014), "NOx": (0.0003, 0.014)}
 diesel_emissions = {"CO2": 0.2, "CO": 0.001, "NOx": 0.003}
 electric_emissions = {"CO2": 0, "CO": 0, "NOx": 0}
 
-# Calculate emissions
 def calculate_emissions(row):
     t = row['StoppedTime(s)']
     v = row['NewNumber']
@@ -26,128 +30,175 @@ def calculate_emissions(row):
         co2 = diesel_emissions["CO2"] * t
         co = diesel_emissions["CO"] * t
         nox = diesel_emissions["NOx"] * t
-    else:  # Electric
+    else:
         co2 = co = nox = 0
     return pd.Series([co2, co, nox])
 
-# apply emissions calculations (adds three columns to df)
 df[['CO2(g)', 'CO(g)', 'NOx(g)']] = df.apply(calculate_emissions, axis=1)
-
-# friendly names for vehicle types (1,2,3)
 vehicle_names = {1: "Diesel", 2: "Gasoline", 3: "Electric"}
-
-# aggregate totals per vehicle type
 summary = df.groupby('NewNumber')[['CO2(g)', 'CO(g)', 'NOx(g)']].sum()
-# map index numbers to friendly names (safer with .get)
 summary.index = [vehicle_names.get(int(i), str(i)) for i in summary.index]
 
-# ----------------- Tkinter UI -----------------
-root = tk.Tk()
-root.title("Vehicle Emissions Dashboard")
-root.geometry("1100x750")  # larger window
+# ----------------- PyQt5 App -----------------
+class Dashboard(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Vehicle Emissions Dashboard")
+        self.setGeometry(100, 100, 1200, 800)
 
-# Fonts (bigger, as requested)
-header_font = tkFont.Font(family="Helvetica", size=14, weight="bold")
-label_font = tkFont.Font(family="Helvetica", size=13)
-tree_font = tkFont.Font(family="Helvetica", size=12)
+        # ----------------- DARK MODE -----------------
+        dark_stylesheet = """
+        QWidget {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: Helvetica;
+        }
+        QGroupBox {
+            border: 1px solid #444444;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 13pt;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 5px 10px;
+            color: #ffffff;
+        }
+        QTableWidget {
+            background-color: #1e1e1e;
+            gridline-color: #444444;
+            alternate-background-color: #2e2e2e;
+        }
+        QHeaderView::section {
+            background-color: #2e2e2e;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 11pt;
+        }
+        QComboBox, QLabel {
+            color: #e0e0e0;
+        }
+        QComboBox {
+            background-color: #1e1e1e;
+            selection-background-color: #3a3a3a;
+        }
+        QPushButton {
+            background-color: #2e2e2e;
+            color: #e0e0e0;
+            border: 1px solid #555555;
+            padding: 5px;
+        }
+        QPushButton:hover {
+            background-color: #3a3a3a;
+        }
+        """
+        self.setStyleSheet(dark_stylesheet)
 
-# ----------------- Top frame: Sections 1 & 2 side by side -----------------
-top_frame = tk.Frame(root)
-top_frame.pack(fill="x", padx=15, pady=15)
+        main_layout = QVBoxLayout()
 
-# Section 1: Pollution by Vehicle Type
-frame1 = tk.LabelFrame(top_frame, text="Pollution by Vehicle Type", padx=15, pady=15)
-frame1.pack(side="left", fill="both", expand=True, padx=10)
+        # Top layout: Table + Chart
+        top_layout = QHBoxLayout()
 
-# Internal frame for table and chart side by side
-pollution_frame = tk.Frame(frame1)
-pollution_frame.pack(fill="both", expand=True)
+        # ----- Table -----
+        table_group = QGroupBox("Pollution by Vehicle Type")
+        table_layout = QVBoxLayout()
+        self.table = QTableWidget()
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["Vehicle", "CO2(g)", "CO(g)", "NOx(g)", "Total"])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setFont(QFont("Helvetica", 11))
+        self.load_table()
+        table_layout.addWidget(self.table)
+        table_group.setLayout(table_layout)
+        top_layout.addWidget(table_group, 2)
 
-# Table (left)
-tree = ttk.Treeview(pollution_frame)
-tree["columns"] = ("Vehicle", "CO2(g)", "CO(g)", "NOx(g)")
-tree.heading("#0", text="", anchor="center")
-tree.column("#0", width=0, stretch=tk.NO)
-for col in tree["columns"]:
-    tree.heading(col, text=col, anchor="center")
-    tree.column(col, width=180, anchor="center")
+        # ----- Chart -----
+        chart_group = QGroupBox("Total Emissions per Vehicle Type")
+        chart_layout = QVBoxLayout()
+        plt.style.use('dark_background')
+        fig, ax = plt.subplots(figsize=(6,4), facecolor='#121212')
+        ax.set_facecolor('#121212')
+        summary.plot(kind='bar', ax=ax, color=['#1f77b4','#ff7f0e','#2ca02c'])
+        ax.set_ylabel("Emissions (grams)", fontsize=12, color="#e0e0e0")
+        ax.set_xlabel("Vehicle Type", fontsize=12, color="#e0e0e0")
+        ax.tick_params(axis='x', labelsize=11, colors="#e0e0e0")
+        ax.tick_params(axis='y', labelsize=11, colors="#e0e0e0")
+        for spine in ax.spines.values():
+            spine.set_color('#444444')
+        plt.tight_layout()
+        canvas = FigureCanvas(fig)
+        chart_layout.addWidget(canvas)
+        chart_group.setLayout(chart_layout)
+        top_layout.addWidget(chart_group, 3)
 
-# Style table rows
-style = ttk.Style()
-style.configure("Treeview", rowheight=40, font=tree_font)
-style.configure("Treeview.Heading", font=header_font)
+        main_layout.addLayout(top_layout)
 
-# Insert aggregated totals into table
-for v_type, row in summary.iterrows():
-    tree.insert("", tk.END, values=(v_type,
-                                    round(row['CO2(g)'], 2),
-                                    round(row['CO(g)'], 4),
-                                    round(row['NOx(g)'], 4)))
-tree.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        # ----- Metrics -----
+        metrics_group = QGroupBox("Simulation Info")
+        metrics_layout = QVBoxLayout()
+        total_vehicles = len(df)
+        total_stopped_min = df['StoppedTime(s)'].sum()/60
+        avg_stop_min = df['StoppedTime(s)'].mean()/60
+        metrics = [
+            f"Total Vehicles: {total_vehicles}",
+            f"Total Stopped Time (all cars): {total_stopped_min:.2f} minutes",
+            f"Average Stop Time per Vehicle: {avg_stop_min:.2f} minutes"
+        ]
+        for m in metrics:
+            lbl = QLabel(m)
+            lbl.setFont(QFont("Helvetica", 12))
+            metrics_layout.addWidget(lbl)
+        metrics_group.setLayout(metrics_layout)
+        main_layout.addWidget(metrics_group)
 
-# Bar Chart (right)
-fig, ax = plt.subplots(figsize=(6,5))
-summary.plot(kind='bar', ax=ax)
-ax.set_ylabel("Emissions (grams)", fontsize=13)
-ax.set_title("Total Emissions per Vehicle Type", fontsize=14)
-ax.tick_params(axis='x', labelsize=12)
-ax.tick_params(axis='y', labelsize=12)
-plt.tight_layout()
+        # ----- Vehicle Lookup -----
+        lookup_group = QGroupBox("Vehicle Lookup")
+        lookup_layout = QHBoxLayout()
+        lookup_label = QLabel("Select Vehicle ID:")
+        lookup_label.setFont(QFont("Helvetica", 12))
+        self.vehicle_dropdown = QComboBox()
+        self.vehicle_dropdown.addItems([str(i) for i in df['VehicleID'].tolist()])
+        self.vehicle_dropdown.setFont(QFont("Helvetica", 12))
+        self.result_label = QLabel("")
+        self.result_label.setFont(QFont("Helvetica", 12))
+        self.vehicle_dropdown.currentIndexChanged.connect(self.show_vehicle_emissions)
+        lookup_layout.addWidget(lookup_label)
+        lookup_layout.addWidget(self.vehicle_dropdown)
+        lookup_layout.addWidget(self.result_label)
+        lookup_group.setLayout(lookup_layout)
+        main_layout.addWidget(lookup_group)
 
-canvas = FigureCanvasTkAgg(fig, master=pollution_frame)
-canvas.draw()
-canvas.get_tk_widget().pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        self.setLayout(main_layout)
 
-# Section 2: Simulation Info (right of Section 1)
-frame2 = tk.LabelFrame(top_frame, text="Simulation Info", padx=15, pady=15)
-frame2.pack(side="left", fill="both", expand=True, padx=10)
+    def load_table(self):
+        self.table.setRowCount(len(summary))
+        for row_idx, (v_type, row) in enumerate(summary.iterrows()):
+            total = row['CO2(g)'] + row['CO(g)'] + row['NOx(g)']
+            self.table.setItem(row_idx, 0, QTableWidgetItem(v_type))
+            self.table.setItem(row_idx, 1, QTableWidgetItem(f"{row['CO2(g)']:.2f}"))
+            self.table.setItem(row_idx, 2, QTableWidgetItem(f"{row['CO(g)']:.4f}"))
+            self.table.setItem(row_idx, 3, QTableWidgetItem(f"{row['NOx(g)']:.4f}"))
+            self.table.setItem(row_idx, 4, QTableWidgetItem(f"{total:.4f}"))
+        self.table.resizeColumnsToContents()
 
-# --- THE KEY METRICS ---
-total_vehicles = len(df)
+    def show_vehicle_emissions(self):
+        vid = int(self.vehicle_dropdown.currentText())
+        vehicle_row = df[df['VehicleID'] == vid]
+        if not vehicle_row.empty:
+            co2 = vehicle_row['CO2(g)'].values[0]
+            co = vehicle_row['CO(g)'].values[0]
+            nox = vehicle_row['NOx(g)'].values[0]
+            stopped_min = vehicle_row['StoppedTime(s)'].values[0]/60
+            self.result_label.setText(
+                f"Stopped: {stopped_min:.2f} min — CO2: {co2:.2f} g, CO: {co:.4f} g, NOx: {nox:.4f} g"
+            )
+        else:
+            self.result_label.setText("Vehicle not found")
 
-# Total stopped time = sum of the second field (StoppedTime(s)), in seconds -> convert to minutes
-total_stopped_seconds = df['StoppedTime(s)'].sum()
-total_stopped_minutes = total_stopped_seconds / 60.0
 
-# Simulation duration (elapsed time) - here shown as the longest single stopped time (in minutes)
-simulation_duration_seconds = df['StoppedTime(s)'].max()
-simulation_duration_minutes = simulation_duration_seconds / 60.0
-
-# Average stop time per vehicle (in minutes)
-average_stop_minutes = df['StoppedTime(s)'].mean() / 60.0
-
-# Display metrics
-tk.Label(frame2, text=f"Total Vehicles: {total_vehicles}", font=label_font).pack(anchor="w", pady=10)
-tk.Label(frame2, text=f"Total Stopped Time (all cars): {total_stopped_minutes:.2f} minutes", font=label_font).pack(anchor="w", pady=8)
-tk.Label(frame2, text=f"Average Stop Time per Vehicle: {average_stop_minutes:.2f} minutes", font=label_font).pack(anchor="w", pady=8)
-
-# ----------------- Section 3: Vehicle Lookup -----------------
-frame3 = tk.LabelFrame(root, text="Vehicle Lookup", padx=15, pady=15)
-frame3.pack(fill="x", padx=15, pady=15)
-
-tk.Label(frame3, text="Select Vehicle ID:", font=label_font).pack(side="left", padx=5)
-
-vehicle_var = tk.IntVar()
-vehicle_choices = df['VehicleID'].tolist()
-dropdown = ttk.Combobox(frame3, textvariable=vehicle_var, values=vehicle_choices, font=label_font, width=12)
-dropdown.pack(side="left", padx=5)
-
-result_label = tk.Label(frame3, text="", font=label_font)
-result_label.pack(side="left", padx=20)
-
-def show_vehicle_emissions(event=None):
-    vid = vehicle_var.get()
-    vehicle_row = df[df['VehicleID'] == vid]
-    if not vehicle_row.empty:
-        co2 = vehicle_row['CO2(g)'].values[0]
-        co = vehicle_row['CO(g)'].values[0]
-        nox = vehicle_row['NOx(g)'].values[0]
-        stopped_s = vehicle_row['StoppedTime(s)'].values[0]
-        stopped_min = stopped_s / 60.0
-        result_label.config(text=f"Stopped: {stopped_min:.2f} min — CO2: {co2:.2f} g, CO: {co:.4f} g, NOx: {nox:.4f} g")
-    else:
-        result_label.config(text="Vehicle not found")
-
-dropdown.bind("<<ComboboxSelected>>", show_vehicle_emissions)
-
-root.mainloop()
+# ----------------- Run App -----------------
+app = QApplication(sys.argv)
+window = Dashboard()
+window.show()
+sys.exit(app.exec_())
