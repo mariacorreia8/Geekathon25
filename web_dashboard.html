@@ -134,6 +134,17 @@
     const coEmissionsElem = document.getElementById('coEmissions');
     const noxEmissionsElem = document.getElementById('noxEmissions');
 
+
+    function formatTime(seconds) {
+      if (seconds < 60) {
+        return seconds.toFixed(0) + ' s';
+      } else {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')} min`;
+      }
+    }
+
     fetch(csvFilePath)
       .then(response => response.text())
       .then(text => {
@@ -177,9 +188,10 @@
         const avgWaitingMin = (totalStopped / count) / 60;
         const maxWaitMin = maxWait / 60;
 
-        totalTimeElem.textContent = totalStoppedMin.toFixed(2) + ' min';
-        avgWaitingTimeElem.textContent = avgWaitingMin.toFixed(2) + ' min';
-        maxWaitingTimeElem.textContent = maxWaitMin.toFixed(2) + ' min';
+        // Dentro do fetch, após calcular totalStopped, avgWaiting, maxWait
+        totalTimeElem.textContent = formatTime(totalStopped);
+        avgWaitingTimeElem.textContent = formatTime(totalStopped / count);
+        maxWaitingTimeElem.textContent = formatTime(maxWait);
 
         const totalEmissions = totalCO2 + totalCO + totalNOx;
         totalEmissionsElem.textContent = totalEmissions.toFixed(3) + ' g';
