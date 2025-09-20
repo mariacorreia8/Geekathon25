@@ -12,18 +12,19 @@ SUMO_NET = "mapCruzamentoPequeno.net.xml"
 SUMO_ROUTE = "routes2.rou.xml"
 SUMO_ADDITIONAL = None
 
-# Q-learning params
-ALPHA = 0.7
-GAMMA = 0.9
-EPSILON_START = 1.0
+ALPHA = 0.5          # menos agressivo, evita instabilidade
+GAMMA = 0.9          # mantém equilíbrio futuro/presente
+EPSILON_START = 1.0  
 EPSILON_END = 0.05
-EPSILON_DECAY = 0.995
-NUM_EPISODES = 200
+EPSILON_DECAY = 0.9995   # mais lento, prolonga exploração
+NUM_EPISODES = 5000      # mais episódios porque espaço explodiu
 MAX_STEPS = 3600
-DECISION_INTERVAL = 5
-STATE_BINS = [0, 1, 3]
-Q_TABLE_FILE = "q_table.pkl"
-PHASE_CHANGE_PENALTY = 0.1
+DECISION_INTERVAL = 10 # experimentar 10 para suavizar
+STATE_BINS = [0, 1, 3]   # manter coarse bins
+PHASE_CHANGE_PENALTY = 0.8
+
+Q_TABLE_FILE = "q_table_global_agent.pkl"
+SAVE_INTERVAL = 5
 
 try:
     import traci
@@ -59,6 +60,24 @@ def ensure_q_row(q_table, key, n_actions):
     if key not in q_table:
         q_table[key] = [0.0] * n_actions
 
+def get_global_state(tls_list):
+    state = []
+    for tls_id in tls_list:
+        lanes = list(dict.fromkeys(traci.trafficlight.getControlledLanes(tls_id)))
+        for l in lanes:
+            count = traci.lane.getLastStepHaltingNumber(l)
+            state.append(discretize(count))
+    return tuple(state)
+
+def get_action_space(tls_list):
+    return [len(traci.trafficlight.getCompleteRedYellowGreenDefinition(tls_id)[0].phases)
+            for tls_id in tls_list]
+
+def all_joint_actions(action_sizes):
+    """Lista todas as combinações possíveis de fases para todos os TLS."""
+    import itertools
+    return list(itertools.product(*[range(n) for n in action_sizes]))
+
 # ----------------- Training -----------------
 def train():
     q_table = {}
@@ -76,25 +95,33 @@ def train():
             print("No traffic lights found.")
             traci.close()
             return
-        tls_id = tls_list[0]
-        lanes = list(dict.fromkeys(traci.trafficlight.getControlledLanes(tls_id)))
-        n_actions = len(traci.trafficlight.getCompleteRedYellowGreenDefinition(tls_id)[0].phases)
+
+        action_sizes = get_action_space(tls_list)
+        joint_actions = all_joint_actions(action_sizes)
 
         traci.simulationStep()
-        prev_state = get_state(lanes)
+        prev_state = get_global_state(tls_list)
         prev_key = state_key(prev_state)
-        ensure_q_row(q_table, prev_key, n_actions)
-        prev_halts = sum(traci.lane.getLastStepHaltingNumber(l) for l in lanes)
+        ensure_q_row(q_table, prev_key, len(joint_actions))
+
+        prev_halts = sum(traci.lane.getLastStepHaltingNumber(l)
+                         for tls_id in tls_list
+                         for l in traci.trafficlight.getControlledLanes(tls_id))
 
         total_reward = 0
         steps = 0
-        current_phase = traci.trafficlight.getPhase(tls_id)
+        # estado inicial das fases
+        current_actions = [traci.trafficlight.getPhase(tls_id) for tls_id in tls_list]
 
         while steps < MAX_STEPS:
-            action = choose_action(q_table, prev_key, n_actions, epsilon)
-            phase_changed = int(action != current_phase)
-            traci.trafficlight.setPhase(tls_id, action)
-            current_phase = action
+            action_idx = choose_action(q_table, prev_key, len(joint_actions), epsilon)
+            action_tuple = joint_actions[action_idx]
+
+            # aplicar fases em todos os TLS
+            phase_changed = sum(int(action_tuple[i] != current_actions[i]) for i in range(len(tls_list)))
+            for tls_id, phase in zip(tls_list, action_tuple):
+                traci.trafficlight.setPhase(tls_id, phase)
+            current_actions = list(action_tuple)
 
             for _ in range(DECISION_INTERVAL):
                 traci.simulationStep()
@@ -102,15 +129,20 @@ def train():
                 if steps >= MAX_STEPS:
                     break
 
-            cur_state = get_state(lanes)
+            cur_state = get_global_state(tls_list)
             cur_key = state_key(cur_state)
-            ensure_q_row(q_table, cur_key, n_actions)
+            ensure_q_row(q_table, cur_key, len(joint_actions))
 
-            cur_halts = sum(traci.lane.getLastStepHaltingNumber(l) for l in lanes)
+            cur_halts = sum(traci.lane.getLastStepHaltingNumber(l)
+                            for tls_id in tls_list
+                            for l in traci.trafficlight.getControlledLanes(tls_id))
+
             reward = (prev_halts - cur_halts) - PHASE_CHANGE_PENALTY * phase_changed
 
             # Q-learning update
-            q_table[prev_key][action] += ALPHA * (reward + GAMMA * max(q_table[cur_key]) - q_table[prev_key][action])
+            q_table[prev_key][action_idx] += ALPHA * (
+                reward + GAMMA * max(q_table[cur_key]) - q_table[prev_key][action_idx]
+            )
             total_reward += reward
 
             prev_key = cur_key
@@ -123,9 +155,6 @@ def train():
         print(f"Episode {ep} done. Reward: {total_reward:.2f}, epsilon: {epsilon:.3f}")
 
     print("Training finished. Q-table saved.")
-
-
-
 
 
 if __name__ == "__main__":
