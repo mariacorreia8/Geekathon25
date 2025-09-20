@@ -12,18 +12,21 @@ SUMO_NET = "mapCruzamentoPequeno.net.xml"
 SUMO_ROUTE = "routes2.rou.xml"
 SUMO_ADDITIONAL = None
 
-ALPHA = 0.5          # menos agressivo, evita instabilidade
-GAMMA = 0.9          # mantém equilíbrio futuro/presente
-EPSILON_START = 1.0  
-EPSILON_END = 0.05
-EPSILON_DECAY = 0.9995   # mais lento, prolonga exploração
-NUM_EPISODES = 5000      # mais episódios porque espaço explodiu
-MAX_STEPS = 3600
-DECISION_INTERVAL = 10 # experimentar 10 para suavizar
-STATE_BINS = [0, 1, 3]   # manter coarse bins
-PHASE_CHANGE_PENALTY = 0.8
 
-Q_TABLE_FILE = "q_table_global_agent.pkl"
+
+STATE_BINS = [0, 1, 3]   # manter coarse bins
+ALPHA = 0.2                 # Learning rate: Lower for more stable learning
+GAMMA = 0.95                # Discount factor: High to value future rewards
+EPSILON_START = 1.0         # Exploration rate start
+EPSILON_END = 0.05          # Exploration rate end
+EPSILON_DECAY = 0.999       # Decay rate: slightly faster for simpler problem
+NUM_EPISODES = 2000         # Can be reduced, as each agent's problem is simpler
+MAX_STEPS = 3600            # Max steps per episode
+DECISION_INTERVAL = 10      # Agent makes a decision every N seconds
+PHASE_CHANGE_PENALTY = 0.1  # Reduced penalty, as reward signal is stronger
+COLLISION_PENALTY = 100
+
+Q_TABLE_FILE = "q_table_global_agent_with_collision.pkl"
 SAVE_INTERVAL = 5
 
 try:
@@ -129,6 +132,16 @@ def train():
                 if steps >= MAX_STEPS:
                     break
 
+            # Check for collisions after each simulation step
+            if traci.simulation.getCollidingVehiclesNumber() > 0:
+                print(f"Collision detected! Applying large penalty.")
+                reward = -COLLISION_PENALTY
+                # Update Q-table with the large negative reward
+                prev_q = q_table[prev_key][action_idx]
+                new_q = prev_q + ALPHA * (reward + GAMMA * 0 - prev_q)
+                q_table[prev_key][action_idx] = new_q
+                break # End the episode immediately
+                
             cur_state = get_global_state(tls_list)
             cur_key = state_key(cur_state)
             ensure_q_row(q_table, cur_key, len(joint_actions))
@@ -152,7 +165,7 @@ def train():
         epsilon = max(EPSILON_END, epsilon * EPSILON_DECAY)
         with open(Q_TABLE_FILE, "wb") as f:
             pickle.dump(q_table, f)
-        print(f"Episode {ep} done. Reward: {total_reward:.2f}, epsilon: {epsilon:.3f}")
+        print(f"Episode {ep}/{NUM_EPISODES} done. Reward: {total_reward:.2f}, epsilon: {epsilon:.3f}")
 
     print("Training finished. Q-table saved.")
 
