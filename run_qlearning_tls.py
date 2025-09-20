@@ -69,6 +69,10 @@ def run():
     print("Loaded Q-table. Running SUMO simulation...")
 
     start_sumo()
+
+    # Step once so TLS info is available
+    traci.simulationStep()
+
     tls_list = traci.trafficlight.getIDList()
     if not tls_list:
         print("No traffic lights found.")
