@@ -2,6 +2,7 @@ import os
 import pickle
 import random
 import time
+import csv
 from collections import defaultdict
 
 try:
@@ -25,11 +26,10 @@ def q_table_factory():
     return defaultdict(list)
 
 def start_sumo():
-    cmd = [SUMO_BINARY, "-n", SUMO_NET, "-r", SUMO_ROUTE, "--start", "--step-length", "0.5"]
+    cmd = [SUMO_BINARY, "-n", SUMO_NET, "-r", SUMO_ROUTE, "--step-length", "0.1"]
     if SUMO_ADDITIONAL:
         cmd += ["-a", SUMO_ADDITIONAL]
     traci.start(cmd)
-
 
 def discretize(count):
     for i, threshold in enumerate(STATE_BINS):
@@ -82,18 +82,19 @@ def run():
             'num_actions': len(traci.trafficlight.getCompleteRedYellowGreenDefinition(tls_id)[0].phases),
             'state': get_local_state(tls_id),
         }
-    
+
+    # ----------------- NEW: stopped-time tracking setup -----------------
+    stopped_times = {}   # {vehicleID: accumulated_stopped_time}
+    step_length = traci.simulation.getDeltaT()
+    controlled_lanes = set(l for tls in tls_list for l in traci.trafficlight.getControlledLanes(tls))
+
     steps = 0
     MAX_STEPS = 3600
 
     while steps < MAX_STEPS:
         # --- For each agent: choose and apply an action ---
         for tls_id, agent in agents.items():
-            # Choose the best action based on the agent's current state and its Q-table
             action = choose_action(q_tables[tls_id], agent['state'], agent['num_actions'])
-            
-            # Apply action if it's a green phase
-            # This is important to allow yellow/red transitions to complete
             traci.trafficlight.setPhase(tls_id, action)
 
         # --- Simulate for DECISION_INTERVAL steps ---
@@ -103,13 +104,35 @@ def run():
             steps += 1
             if steps >= MAX_STEPS:
                 break
-        
+
+            # ----------------- NEW: stopped-time tracking -----------------
+            for veh_id in traci.vehicle.getIDList():
+                speed = traci.vehicle.getSpeed(veh_id)
+                lane_id = traci.vehicle.getLaneID(veh_id)
+
+                # only count if the vehicle is in a traffic-light-controlled lane
+                if lane_id in controlled_lanes and speed < 0.5:
+                    if veh_id not in stopped_times:
+                        stopped_times[veh_id] = 0.0
+                    stopped_times[veh_id] += step_length
+
         # --- Update states for the next decision cycle ---
         for tls_id, agent in agents.items():
             agent['state'] = get_local_state(tls_id)
 
     traci.close()
     print("Simulation finished.")
+
+    # ----------------- NEW: Save results -----------------
+    print("Stopped times at traffic lights (optimized run):")
+    for veh_id, time_s in stopped_times.items():
+        print(f"{veh_id}: {time_s:.2f} s")
+
+    with open("stopped_times_optimized.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["VehicleID", "StoppedTime(s)"])
+        for veh_id, time_s in stopped_times.items():
+            writer.writerow([veh_id, f"{time_s:.2f}"])
 
 if __name__ == "__main__":
     random.seed(0)

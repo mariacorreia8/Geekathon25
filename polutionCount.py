@@ -1,6 +1,7 @@
 import sys
 import pandas as pd
 import numpy as np
+import os
 
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -12,9 +13,24 @@ from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 
-# ----------------- Load Data -----------------
-df = pd.read_csv("vehicles_with_numbers.csv")
 
+# ----------------- Check / Create CSV -----------------
+csv_file = "vehicles_with_numbers_optimized.csv"
+
+if not os.path.exists(csv_file):
+    print(f"{csv_file} not found. Creating a default dataset...")
+    # Create sample dataset
+    num_vehicles = 20  # adjust as needed
+    df = pd.DataFrame({
+        "VehicleID": range(1, num_vehicles+1),
+        "StoppedTime(s)": np.random.uniform(10, 300, size=num_vehicles),   # 10s to 5min
+        "NewNumber": np.random.choice([1,2,3], size=num_vehicles),  # Diesel, Gas, Electric
+    })
+    df.to_csv(csv_file, index=False)
+else:
+    df = pd.read_csv(csv_file)
+
+# ----------------- Emissions -----------------
 gas_emissions = {"CO2": (3, 7), "CO": (0.006, 0.014), "NOx": (0.0003, 0.014)}
 diesel_emissions = {"CO2": 0.2, "CO": 0.001, "NOx": 0.003}
 electric_emissions = {"CO2": 0, "CO": 0, "NOx": 0}
@@ -35,9 +51,12 @@ def calculate_emissions(row):
     return pd.Series([co2, co, nox])
 
 df[['CO2(g)', 'CO(g)', 'NOx(g)']] = df.apply(calculate_emissions, axis=1)
+
+# Vehicle names
 vehicle_names = {1: "Diesel", 2: "Gasoline", 3: "Electric"}
 summary = df.groupby('NewNumber')[['CO2(g)', 'CO(g)', 'NOx(g)']].sum()
 summary.index = [vehicle_names.get(int(i), str(i)) for i in summary.index]
+
 
 # ----------------- PyQt5 App -----------------
 class Dashboard(QWidget):

@@ -124,7 +124,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const csvFilePath = 'vehicles_with_numbers.csv';
+    const csvFilePath = 'vehicles_with_numbers_optimized.csv';
 
     const totalTimeElem = document.getElementById('totalTime');
     const avgWaitingTimeElem = document.getElementById('avgWaitingTime');
@@ -161,7 +161,7 @@
         rows.forEach(row => {
           if (row.trim() === '') return;
           const cols = row.split(',');
-          const vehicleType = parseInt(cols[0]);
+          const vehicleType = parseInt(cols[2]);
           const stoppedTime = parseFloat(cols[1]);
 
           if (!isNaN(stoppedTime)) {
